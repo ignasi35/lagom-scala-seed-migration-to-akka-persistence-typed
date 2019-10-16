@@ -8,6 +8,7 @@ import akka.actor.typed.ActorRef
 import akka.actor.typed.Behavior
 import akka.cluster.sharding.typed.scaladsl._
 import akka.persistence.typed.ExpectingReply
+import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.Effect
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
 import akka.persistence.typed.scaladsl.ReplyEffect
@@ -42,16 +43,10 @@ import scala.collection.immutable.Seq
 object SmelloBehavior {
 
 
-  def behavior(entityContext: EntityContext): Behavior[SmelloCommand[_]] = {
-    val persistenceId = SmelloState.typeKey.persistenceIdFrom(entityContext.entityId)
+  def create(entityContext: EntityContext): Behavior[SmelloCommand[_]] = {
+    val persistenceId: PersistenceId = SmelloState.typeKey.persistenceIdFrom(entityContext.entityId)
 
-    EventSourcedBehavior
-      .withEnforcedReplies[SmelloCommand[_], SmelloEvent, SmelloState](
-        persistenceId = persistenceId,
-        emptyState = SmelloState.initial,
-        commandHandler = (cart, cmd) => cart.applyCommand(cmd),
-        eventHandler = (cart, evt) => cart.applyEvent(evt)
-      )
+    create(persistenceId)
       .withTagger(
         // Using Akka Persistence Typed in Lagom requires tagging your events
         // in Lagom-compatible way so Lagom ReadSideProcessors and TopicProducers
@@ -60,6 +55,13 @@ object SmelloBehavior {
       )
 
   }
+  private[eggsample] def create(persistenceId: PersistenceId) = EventSourcedBehavior
+      .withEnforcedReplies[SmelloCommand[_], SmelloEvent, SmelloState](
+        persistenceId = persistenceId,
+        emptyState = SmelloState.initial,
+        commandHandler = (cart, cmd) => cart.applyCommand(cmd),
+        eventHandler = (cart, evt) => cart.applyEvent(evt)
+      )
 }
 
 /**

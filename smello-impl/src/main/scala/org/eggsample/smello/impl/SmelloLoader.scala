@@ -41,7 +41,7 @@ abstract class SmelloApplication(context: LagomApplicationContext)
   clusterSharding.init(
     Entity(
       SmelloState.typeKey,
-      entityContext => SmelloBehavior.behavior(entityContext)
+      entityContext => SmelloBehavior.create(entityContext)
     )
   )
 
