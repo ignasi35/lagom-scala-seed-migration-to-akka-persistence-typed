@@ -26,7 +26,6 @@ lazy val `smello-impl` = (project in file("smello-impl"))
       lagomScaladslTestKit,
       macwire,
       scalaTest,
-      "com.typesafe.akka" %% "akka-actor-testkit-typed" % "2.6.0-M7" % Test
     )
   )
   .settings(lagomForkedTestSettings)

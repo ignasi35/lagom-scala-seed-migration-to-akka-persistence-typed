@@ -7,7 +7,6 @@ import java.time.LocalDateTime
 import akka.actor.typed.ActorRef
 import akka.actor.typed.Behavior
 import akka.cluster.sharding.typed.scaladsl._
-import akka.persistence.typed.ExpectingReply
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.Effect
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
@@ -43,8 +42,8 @@ import scala.collection.immutable.Seq
 object SmelloBehavior {
 
 
-  def create(entityContext: EntityContext): Behavior[SmelloCommand[_]] = {
-    val persistenceId: PersistenceId = SmelloState.typeKey.persistenceIdFrom(entityContext.entityId)
+  def create(entityContext: EntityContext[SmelloCommand]): Behavior[SmelloCommand] = {
+    val persistenceId: PersistenceId = PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId)
 
     create(persistenceId)
       .withTagger(
@@ -56,7 +55,7 @@ object SmelloBehavior {
 
   }
   private[eggsample] def create(persistenceId: PersistenceId) = EventSourcedBehavior
-      .withEnforcedReplies[SmelloCommand[_], SmelloEvent, SmelloState](
+      .withEnforcedReplies[SmelloCommand, SmelloEvent, SmelloState](
         persistenceId = persistenceId,
         emptyState = SmelloState.initial,
         commandHandler = (cart, cmd) => cart.applyCommand(cmd),
@@ -68,9 +67,7 @@ object SmelloBehavior {
   * The current state of the Persistent Entity.
   */
 case class SmelloState(message: String, timestamp: String) {
-  def applyCommand(
-    cmd: SmelloCommand[_]
-  ): ReplyEffect[SmelloEvent, SmelloState] =
+  def applyCommand(cmd: SmelloCommand): ReplyEffect[SmelloEvent, SmelloState] =
     cmd match {
       case x: Hello              => onHello(x)
       case x: UseGreetingMessage => onGreetingMessageUpgrade(x)
@@ -81,14 +78,14 @@ case class SmelloState(message: String, timestamp: String) {
       case GreetingMessageChanged(msg) => updateMessage(msg)
     }
   private def onHello(cmd: Hello): ReplyEffect[SmelloEvent, SmelloState] =
-    Effect.reply(cmd)(Greeting(s"$message, ${cmd.name}!"))
+    Effect.reply(cmd.replyTo)(Greeting(s"$message, ${cmd.name}!"))
 
   private def onGreetingMessageUpgrade(
     cmd: UseGreetingMessage
   ): ReplyEffect[SmelloEvent, SmelloState] =
     Effect
       .persist(GreetingMessageChanged(cmd.message))
-      .thenReply(cmd) { _ =>
+      .thenReply(cmd.replyTo) { _ =>
         Accepted
       }
 
@@ -109,7 +106,7 @@ object SmelloState {
     * namespaced under a typekey that specifies a name and also the type of the commands
     * that sharded actor can receive.
     */
-  val typeKey = EntityTypeKey[SmelloCommand[_]]("SmelloStateEntity")
+  val typeKey = EntityTypeKey[SmelloCommand]("SmelloStateEntity")
 
   /**
     * Format for the hello state.
@@ -160,9 +157,8 @@ trait SmelloCommandSerializable
 /**
   * This interface defines all the commands that the SmelloEntity supports.
   */
-sealed trait SmelloCommand[R <: SmelloReply]
-    extends ExpectingReply[R]
-    with SmelloCommandSerializable
+sealed trait SmelloCommand
+    extends SmelloCommandSerializable
 
 /**
   * A command to switch the greeting message.
@@ -171,7 +167,7 @@ sealed trait SmelloCommand[R <: SmelloReply]
   * when all the events emitted by this command are successfully persisted.
   */
 case class UseGreetingMessage(message: String, replyTo: ActorRef[Confirmation])
-    extends SmelloCommand[Confirmation]
+    extends SmelloCommand
 
 /**
   * A command to say hello to someone using the current greeting message.
@@ -180,7 +176,7 @@ case class UseGreetingMessage(message: String, replyTo: ActorRef[Confirmation])
   * person.
   */
 case class Hello(name: String, replyTo: ActorRef[Greeting])
-    extends SmelloCommand[Greeting]
+    extends SmelloCommand
 
 sealed trait SmelloReply
 
