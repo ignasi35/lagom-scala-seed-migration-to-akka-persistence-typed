@@ -26,21 +26,22 @@ class SmelloLoader extends LagomApplicationLoader {
 }
 
 abstract class SmelloApplication(context: LagomApplicationContext)
-  extends LagomApplication(context)
+    extends LagomApplication(context)
     with CassandraPersistenceComponents
     with LagomKafkaComponents
     with AhcWSComponents {
 
   // Bind the service that this server provides
-  override lazy val lagomServer: LagomServer = serverFor[SmelloService](wire[SmelloServiceImpl])
+  override lazy val lagomServer: LagomServer =
+    serverFor[SmelloService](wire[SmelloServiceImpl])
 
   // Register the JSON serializer registry
-  override lazy val jsonSerializerRegistry: JsonSerializerRegistry = SmelloSerializerRegistry
+  override lazy val jsonSerializerRegistry: JsonSerializerRegistry =
+    SmelloSerializerRegistry
 
   // this is the equivalent in Akka Typed of Lagom's PersistentEntityRegistry.register
   clusterSharding.init(
-    Entity(
-      SmelloState.typeKey,
+    Entity(SmelloState.typeKey)(
       entityContext => SmelloBehavior.create(entityContext)
     )
   )

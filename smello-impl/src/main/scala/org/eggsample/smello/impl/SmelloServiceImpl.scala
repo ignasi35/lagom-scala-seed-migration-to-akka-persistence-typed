@@ -29,7 +29,7 @@ class SmelloServiceImpl(
   /**
     * Looks up the entity for the given ID.
     */
-  private def entityRef(id: String): EntityRef[SmelloCommand[_]] =
+  private def entityRef(id: String): EntityRef[SmelloCommand] =
     clusterSharding.entityRefFor(SmelloState.typeKey, id)
 
   implicit val timeout = Timeout(5.seconds)
